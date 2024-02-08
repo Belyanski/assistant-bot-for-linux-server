@@ -1,10 +1,17 @@
 certifi==2024.2.2
 charset-normalizer==3.3.2
 docker==7.0.0
+flake8==7.0.0
 idna==3.6
+isort==5.13.2
+mccabe==0.7.0
 packaging==23.2
 psutil==5.9.8
+pycodestyle==2.11.1
+pyflakes==3.2.0
 pyTelegramBotAPI==4.9.0
 python-dotenv==1.0.0
+pywin32==306
 requests==2.31.0
+schedule==1.2.1
 urllib3==2.2.0

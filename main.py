@@ -1,24 +1,28 @@
 import os
-import requests
+import threading
+import time
 
-import telebot
 import docker
 import psutil
+import requests
+import schedule
+import telebot
 from dotenv import load_dotenv
 
 load_dotenv()
+
 bot = telebot.TeleBot(os.getenv('TOKEN'))
 website_url = os.getenv('URL')
-chat_id = os.getenv('CHAT_ID')
+chat_id = os.getenv('CHAT_IDS', '').split(',')
 client = docker.from_env()
 
 
 @bot.message_handler(commands=['start'])
 def strat(message):
-    mess = (f'/docker - названия контейнеров, их статус и порт.\n'
-            f'/docker_sum - количество запущенных контейнеров.\n'
-            f'/check_website_status - status code веб-приложения.\n'
-            f'/ram - информация о ram сервера.\n')
+    mess = ('/docker - названия контейнеров, их статус и порт.\n'
+            '/docker_sum - количество запущенных контейнеров.\n'
+            '/check_website_status - status code веб-приложения.\n'
+            '/ram - информация о ram сервера.\n')
     bot.send_message(message.chat.id, mess, parse_mode='html')
 
 
@@ -26,11 +30,13 @@ def strat(message):
 def docker_info(message):
     containers = client.containers.list()
     container_info = []
+
     for container in containers:
         info = (f'Image: {container.name}\n'
                 f'Status: {container.status}\n'
                 f'Ports: {container.ports}\n')
         container_info.append(info)
+
     for mess in container_info:
         bot.send_message(message.chat.id, mess, parse_mode='html')
 
@@ -78,10 +84,26 @@ def ram_server(message):
     bot.send_message(message.chat.id, mess, parse_mode='html')
 
 
+def send_status_periodically():
+    try:
+        mess = check_website_status(website_url)
+        bot.send_message(chat_id, mess, parse_mode='html')
+        print("Status message sent")
+    except Exception as e:
+        print(f"Error: {e}")
+
 
 def main():
-    bot.polling(none_stop=True)
+    bot_thread = threading.Thread(target=bot.polling,
+                                  kwargs={'none_stop': True})
+    bot_thread.start()
+
+    schedule.every(1).minutes.do(send_status_periodically)
+    while True:
+        schedule.run_pending()
+        time.sleep(20)
 
 
 if __name__ == '__main__':
+    load_dotenv()
     main()
