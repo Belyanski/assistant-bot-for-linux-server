@@ -1,11 +1,9 @@
 import os
-import threading
 import time
-
+import threading
 import docker
 import psutil
 import requests
-import schedule
 import telebot
 from dotenv import load_dotenv
 
@@ -13,12 +11,16 @@ load_dotenv()
 
 bot = telebot.TeleBot(os.getenv('TOKEN'))
 website_url = os.getenv('URL')
-chat_id = os.getenv('CHAT_IDS', '').split(',')
+chat_ids = [int(chat_id) 
+            for chat_id 
+            in os.getenv('CHAT_IDS', '').split(',') 
+            if chat_id]
 client = docker.from_env()
+last_running_containers = set()
 
 
 @bot.message_handler(commands=['start'])
-def strat(message):
+def start(message):
     mess = ('/docker - названия контейнеров, их статус и порт.\n'
             '/docker_sum - количество запущенных контейнеров.\n'
             '/check_website_status - status code веб-приложения.\n'
@@ -84,13 +86,23 @@ def ram_server(message):
     bot.send_message(message.chat.id, mess, parse_mode='html')
 
 
-def send_status_periodically():
-    try:
-        mess = check_website_status(website_url)
-        bot.send_message(chat_id, mess, parse_mode='html')
-        print("Status message sent")
-    except Exception as e:
-        print(f"Error: {e}")
+def notify_container_failure(container_name):
+    message = f"Container {container_name} has crashed!"
+    for chat_id in chat_ids:
+        bot.send_message(chat_id, message, parse_mode='html')
+
+
+def check_container_status():
+    containers = client.containers.list()
+    current_running_containers = {container.name for container in containers
+                                  if container.status == 'running'}
+
+    global last_running_containers
+    for container_name in last_running_containers:
+        if container_name not in current_running_containers:
+            notify_container_failure(container_name)
+
+    last_running_containers = current_running_containers
 
 
 def main():
@@ -98,12 +110,15 @@ def main():
                                   kwargs={'none_stop': True})
     bot_thread.start()
 
-    schedule.every(1).minutes.do(send_status_periodically)
     while True:
-        schedule.run_pending()
-        time.sleep(20)
+        try:
+            check_container_status()
+        except Exception as e:
+            print(f"Error in container status check: {e}")
+        
+        time.sleep(10)
 
 
 if __name__ == '__main__':
-    load_dotenv()
+    last_running_containers = set()
     main()
