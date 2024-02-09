@@ -1,6 +1,7 @@
 import os
-import time
 import threading
+import time
+
 import docker
 import psutil
 import requests
@@ -11,9 +12,9 @@ load_dotenv()
 
 bot = telebot.TeleBot(os.getenv('TOKEN'))
 website_url = os.getenv('URL')
-chat_ids = [int(chat_id) 
-            for chat_id 
-            in os.getenv('CHAT_IDS', '').split(',') 
+chat_ids = [int(chat_id)
+            for chat_id
+            in os.getenv('CHAT_IDS', '').split(',')
             if chat_id]
 client = docker.from_env()
 last_running_containers = set()
@@ -115,8 +116,8 @@ def main():
             check_container_status()
         except Exception as e:
             print(f"Error in container status check: {e}")
-        
-        time.sleep(10)
+
+        time.sleep(300)
 
 
 if __name__ == '__main__':
